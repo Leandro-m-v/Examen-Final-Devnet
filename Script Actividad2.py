@@ -1,7 +1,27 @@
 import requests
 
 API_KEY = "0def34d8-b7d3-4207-a894-d5a87bb07b4e"
-BASE_URL = "https://graphhopper.com/api/1/route"
+
+GEOCODE_URL = "https://graphhopper.com/api/1/geocode"
+ROUTE_URL = "https://graphhopper.com/api/1/route"
+
+def geocodificar_ciudad(ciudad):
+    params = {
+        "q": ciudad,
+        "locale": "es",
+        "limit": 1,
+        "key": API_KEY
+    }
+
+    response = requests.get(GEOCODE_URL, params=params)
+    data = response.json()
+
+    if "hits" not in data or len(data["hits"]) == 0:
+        return None
+
+    lat = data["hits"][0]["point"]["lat"]
+    lon = data["hits"][0]["point"]["lng"]
+    return f"{lat},{lon}"
 
 def obtener_ruta(origen, destino, medio):
     params = {
@@ -13,19 +33,19 @@ def obtener_ruta(origen, destino, medio):
         "key": API_KEY
     }
 
-    response = requests.get(BASE_URL, params=params)
+    response = requests.get(ROUTE_URL, params=params)
     return response.json()
 
 def mostrar_resultados(data):
     path = data["paths"][0]
 
-    distancia_metros = path["distance"]
-    distancia_km = distancia_metros / 1000
+    distancia_m = path["distance"]
+    distancia_km = distancia_m / 1000
     distancia_millas = distancia_km * 0.621371
 
-    duracion_segundos = path["time"] / 1000
-    horas = int(duracion_segundos // 3600)
-    minutos = int((duracion_segundos % 3600) // 60)
+    duracion_s = path["time"] / 1000
+    horas = int(duracion_s // 3600)
+    minutos = int((duracion_s % 3600) // 60)
 
     print("\n📏 Distancia del viaje:")
     print(f" - Kilómetros : {distancia_km:.2f} km")
@@ -35,25 +55,25 @@ def mostrar_resultados(data):
     print(f" - {horas} horas y {minutos} minutos")
 
     print("\n🧭 Narrativa del viaje:")
-    for instruccion in path["instructions"]:
-        print(f" - {instruccion['text']} ({instruccion['distance'] / 1000:.2f} km)")
+    for inst in path["instructions"]:
+        print(f" - {inst['text']} ({inst['distance']/1000:.2f} km)")
 
-def menu():
+def menu_transporte():
     print("\nSeleccione medio de transporte:")
     print("1 - Auto")
     print("2 - Bicicleta")
     print("3 - Peatón")
     print("v - Volver / Salir")
 
-    opcion = input("Opción: ").lower()
+    op = input("Opción: ").lower()
 
-    if opcion == "1":
+    if op == "1":
         return "car"
-    elif opcion == "2":
+    elif op == "2":
         return "bike"
-    elif opcion == "3":
+    elif op == "3":
         return "foot"
-    elif opcion == "v":
+    elif op == "v":
         return "v"
     else:
         print("❌ Opción inválida")
@@ -64,15 +84,22 @@ def main():
     print("Presione 'v' en cualquier momento para salir\n")
 
     while True:
-        origen = input("Ciudad de Origen: ")
-        if origen.lower() == "v":
+        origen_txt = input("Ciudad de Origen: ")
+        if origen_txt.lower() == "v":
             break
 
-        destino = input("Ciudad de Destino: ")
-        if destino.lower() == "v":
+        destino_txt = input("Ciudad de Destino: ")
+        if destino_txt.lower() == "v":
             break
 
-        medio = menu()
+        origen = geocodificar_ciudad(origen_txt)
+        destino = geocodificar_ciudad(destino_txt)
+
+        if not origen or not destino:
+            print("❌ No se pudo encontrar una de las ciudades.")
+            continue
+
+        medio = menu_transporte()
         if medio == "v":
             break
         if not medio:
@@ -83,7 +110,7 @@ def main():
             if "paths" in resultado:
                 mostrar_resultados(resultado)
             else:
-                print("❌ Error al obtener la ruta. Verifique las ciudades.")
+                print("❌ Error al obtener la ruta.")
         except Exception as e:
             print("❌ Error:", e)
 
